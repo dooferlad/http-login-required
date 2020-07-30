@@ -45,8 +45,15 @@ func (s *Server) cleanup() {
 	}
 }
 
+var localhost string
+
 func (s *Server) loginRequired(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host == localhost {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		session, err := s.sessionStore.Get(r, "auth-session")
 		if err != nil {
 			logrus.Error("Unable to open session (1) ", err.Error())
@@ -170,6 +177,11 @@ func (s *Server) userHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetSession proxies the gorilla/sessions/Session.Get function
+func (s *Server) GetSession(r *http.Request, name string) (*sessions.Session, error) {
+	return s.sessionStore.Get(r, name)
+}
+
 func New(sessionStore sessions.Store) (*Server, error) {
 	// Load .env if it exists
 	if _, err := os.Stat(".env"); err == nil {
@@ -244,6 +256,9 @@ func (s *Server) Serve() {
 	if port == "" {
 		port = "7777"
 	}
+
+	localhost = "localhost:" + port
+
 	if err := http.ListenAndServe(":"+port, handlers.RecoveryHandler()(s.Mux)); err != nil {
 		logrus.Fatal(err)
 	}
