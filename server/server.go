@@ -29,11 +29,12 @@ type CleanupFunc func()
 
 // Server is an HTTP server with open and protected pages
 type Server struct {
-	sessionStore sessions.Store
-	oathConfig   *oauth2.Config
-	Mux          *mux.Router
-	SecureMux    *mux.Router
-	CleanupFuncs []CleanupFunc
+	sessionStore           sessions.Store
+	oathConfig             *oauth2.Config
+	Mux                    *mux.Router
+	SecureMux              *mux.Router
+	CleanupFuncs           []CleanupFunc
+	BypassAuthForLocalhost bool
 }
 
 // cleanup is used instead of using deferred functions because they aren't run
@@ -49,7 +50,7 @@ var localhost string
 
 func (s *Server) loginRequired(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Host == localhost {
+		if s.BypassAuthForLocalhost && r.Host == localhost {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -64,7 +65,8 @@ func (s *Server) loginRequired(next http.Handler) http.Handler {
 		if v, ok := session.Values["profile"]; !ok {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 		} else {
-			if hd, ok := v.(map[string]interface{})["hd"]; ok && hd == "octoenergy.com" {
+			usersDomain := os.Getenv("RESTRICTED_TO_DOMAIN")
+			if hd, ok := v.(map[string]interface{})["hd"]; ok && hd == usersDomain {
 				next.ServeHTTP(w, r)
 			} else {
 				http.Redirect(w, r, "/login", http.StatusSeeOther)
