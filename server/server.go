@@ -66,10 +66,14 @@ func (s *Server) loginRequired(next http.Handler) http.Handler {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 		} else {
 			usersDomain := os.Getenv("RESTRICTED_TO_DOMAIN")
-			if hd, ok := v.(map[string]interface{})["hd"]; ok && hd == usersDomain {
-				next.ServeHTTP(w, r)
+			if usersDomain != "" {
+				if hd, ok := v.(map[string]interface{})["hd"]; ok && hd == usersDomain {
+					next.ServeHTTP(w, r)
+				} else {
+					http.Redirect(w, r, "/login", http.StatusSeeOther)
+				}
 			} else {
-				http.Redirect(w, r, "/login", http.StatusSeeOther)
+				next.ServeHTTP(w, r)
 			}
 		}
 	})
